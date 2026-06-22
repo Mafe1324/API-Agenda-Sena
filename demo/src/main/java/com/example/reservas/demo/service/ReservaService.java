@@ -4,14 +4,18 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.example.reservas.demo.dto.AmbienteMasUsadoSemanaReporte;
 import com.example.reservas.demo.dto.OcupacionAmbienteReporte;
+import com.example.reservas.demo.dto.ReservaRequest;
 import com.example.reservas.demo.exception.RecursoNoEncontradoException;
 import com.example.reservas.demo.exception.ReglaNegocioException;
 import com.example.reservas.demo.model.Ambiente;
@@ -31,7 +35,21 @@ public class ReservaService {
         this.reservaRepository = reservaRepository;
     }
 
-    public Reserva crear(Reserva reserva) {
+    public Reserva crear(ReservaRequest request) {
+        Reserva reserva = new Reserva();
+        Ambiente ambienteSolicitud = new Ambiente();
+        ambienteSolicitud.setId(request.ambienteId());
+
+        reserva.setAmbiente(ambienteSolicitud);
+        reserva.setNombreInstructor(request.nombreInstructor());
+        reserva.setFechaInicio(request.fechaInicio());
+        reserva.setFechaFin(request.fechaFin());
+        reserva.setNumeroAprendices(request.numeroAprendices());
+
+        return crear(reserva);
+    }
+
+    private Reserva crear(Reserva reserva) {
 
         Ambiente ambiente = ambienteRepository.findById(reserva.getAmbiente().getId())
             .orElseThrow(() -> new RecursoNoEncontradoException("Ambiente no encontrado"));
@@ -57,8 +75,8 @@ public class ReservaService {
         }
 
         // Regla 3: duración entre 1 y 4 horas
-        long horas = Duration.between(inicio, fin).toHours();
-        if (horas < 1 || horas > 4) {
+        long minutos = Duration.between(inicio, fin).toMinutes();
+        if (minutos < 60 || minutos > 240) {
             throw new ReglaNegocioException("La reserva debe durar entre 1 y 4 horas");
         }
 
@@ -157,6 +175,50 @@ public class ReservaService {
         }
 
         return reporte;
+    }
+
+    public AmbienteMasUsadoSemanaReporte ambienteMasUsadoSemana(LocalDate fecha) {
+        LocalDate fechaReferencia = fecha == null ? LocalDate.now() : fecha;
+        LocalDate semanaInicio = fechaReferencia.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+        LocalDate semanaFin = fechaReferencia.with(TemporalAdjusters.nextOrSame(java.time.DayOfWeek.SUNDAY));
+
+        LocalDateTime inicioRango = semanaInicio.atStartOfDay();
+        LocalDateTime finRango = semanaFin.plusDays(1).atStartOfDay();
+
+        List<Reserva> reservas = reservaRepository
+            .findByEstadoAndFechaInicioLessThanAndFechaFinGreaterThan(
+                EstadoReserva.ACTIVA, finRango, inicioRango
+            );
+
+        if (reservas.isEmpty()) {
+            throw new RecursoNoEncontradoException("No hay reservas activas en la semana consultada");
+        }
+
+        Map<Ambiente, List<Reserva>> reservasPorAmbiente = reservas.stream()
+            .collect(Collectors.groupingBy(Reserva::getAmbiente));
+
+        return reservasPorAmbiente.entrySet().stream()
+            .map(entry -> {
+                Ambiente ambiente = entry.getKey();
+                List<Reserva> reservasAmbiente = entry.getValue();
+                double horasOcupadas = reservasAmbiente.stream()
+                    .mapToDouble(reserva -> calcularHorasDentroDelRango(reserva, inicioRango, finRango))
+                    .sum();
+
+                return new AmbienteMasUsadoSemanaReporte(
+                    semanaInicio,
+                    semanaFin,
+                    ambiente.getId(),
+                    ambiente.getNombre(),
+                    ambiente.getTipo(),
+                    (long) reservasAmbiente.size(),
+                    redondear(horasOcupadas)
+                );
+            })
+            .max(Comparator
+                .comparing(AmbienteMasUsadoSemanaReporte::reservasActivas)
+                .thenComparing(AmbienteMasUsadoSemanaReporte::horasOcupadas))
+            .orElseThrow(() -> new RecursoNoEncontradoException("No hay reservas activas en la semana consultada"));
     }
 
     private double calcularHorasDentroDelRango(

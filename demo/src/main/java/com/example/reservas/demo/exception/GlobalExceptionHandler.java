@@ -3,6 +3,7 @@ package com.example.reservas.demo.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -12,6 +13,7 @@ import com.example.reservas.demo.exception.ReglaNegocioException;
 import com.example.reservas.demo.exception.RecursoNoEncontradoException;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
@@ -44,6 +46,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
             "error", "Solicitud invalida. Verifica el formato de los datos enviados",
             "detalle", ex.getMessage(),
+            "codigo", 400,
+            "timestamp", LocalDateTime.now().toString()
+        ));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
+        Map<String, String> errores = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+            errores.put(error.getField(), error.getDefaultMessage())
+        );
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+            "error", "Solicitud invalida. Verifica los campos enviados",
+            "errores", errores,
             "codigo", 400,
             "timestamp", LocalDateTime.now().toString()
         ));

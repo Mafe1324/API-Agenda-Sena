@@ -1,25 +1,22 @@
 @baseUrl = http://localhost:8080
 
-# Cambia estas fechas si ya quedaron en el pasado.
-@fechaInicio = 2026-07-01T08:00:00
-@fechaFin = 2026-07-01T10:00:00
-@fechaInicioLibre = 2026-07-01T14:00:00
-@fechaFinLibre = 2026-07-01T16:00:00
-@fechaConsulta = 2026-07-01
-@fechaReporteInicio = 2026-07-01
-@fechaReporteFin = 2026-07-01
-
-# Despues de ejecutar "OK - POST /api/ambientes", copia el id devuelto aqui.
-@ambienteId = 1
-
-# Despues de ejecutar "OK - POST /api/reservas", copia el id devuelto aqui.
-@reservaId = 1
+# Datos iniciales cargados desde src/main/resources/data.sql
+@ambienteDisponibleId = 1002
+@ambienteOcupadoId = 1001
+@ambienteInactivoId = 1004
+@ambienteInstructorId = 1005
+@reservaCancelableId = 2007
+@reservaCancelacionTardiaId = 2008
 
 @ambienteInexistenteId = 999999
 @reservaInexistenteId = 999999
 
-### OK - POST /api/ambientes - Registrar ambiente laboratorio
-# @name crearAmbiente
+@fechaConsulta = 2027-07-01
+@fechaReporteInicio = 2027-07-01
+@fechaReporteFin = 2027-07-07
+@fechaSemana = 2027-07-01
+
+### OK - POST /api/ambientes - Registrar ambiente
 POST {{baseUrl}}/api/ambientes
 Content-Type: application/json
 
@@ -27,6 +24,17 @@ Content-Type: application/json
   "nombre": "Laboratorio Pruebas HTTP",
   "tipo": "LABORATORIO",
   "capacidad": 30,
+  "activo": true
+}
+
+### FALLA - POST /api/ambientes - Validacion declarativa: nombre vacio y capacidad invalida
+POST {{baseUrl}}/api/ambientes
+Content-Type: application/json
+
+{
+  "nombre": "",
+  "tipo": "LABORATORIO",
+  "capacidad": 0,
   "activo": true
 }
 
@@ -48,95 +56,187 @@ GET {{baseUrl}}/api/ambientes
 GET {{baseUrl}}/api/ambientes-no-existe
 
 ### OK - POST /api/reservas - Crear reserva activa
-# @name crearReserva
 POST {{baseUrl}}/api/reservas
 Content-Type: application/json
 
 {
-  "ambiente": {
-    "id": {{ambienteId}},
-    "activo": true
-  },
+  "ambienteId": {{ambienteDisponibleId}},
   "nombreInstructor": "Ana Gomez",
-  "fechaInicio": "{{fechaInicio}}",
-  "fechaFin": "{{fechaFin}}",
-  "numeroAprendices": 25
-}
-
-### FALLA - POST /api/reservas - Ambiente inexistente
-POST {{baseUrl}}/api/reservas
-Content-Type: application/json
-
-{
-  "ambiente": {
-    "id": {{ambienteInexistenteId}},
-    "activo": true
-  },
-  "nombreInstructor": "Ana Gomez",
-  "fechaInicio": "{{fechaInicioLibre}}",
-  "fechaFin": "{{fechaFinLibre}}",
-  "numeroAprendices": 25
-}
-
-### FALLA - POST /api/reservas - Reserva solapada con otra activa
-POST {{baseUrl}}/api/reservas
-Content-Type: application/json
-
-{
-  "ambiente": {
-    "id": {{ambienteId}},
-    "activo": true
-  },
-  "nombreInstructor": "Carlos Ruiz",
-  "fechaInicio": "2026-07-01T09:00:00",
-  "fechaFin": "2026-07-01T11:00:00",
+  "fechaInicio": "2027-07-06T08:00:00",
+  "fechaFin": "2027-07-06T10:00:00",
   "numeroAprendices": 20
 }
 
-### FALLA - POST /api/reservas - Supera capacidad del ambiente
+### FALLA - POST /api/reservas - Regla: ambiente inexistente
 POST {{baseUrl}}/api/reservas
 Content-Type: application/json
 
 {
-  "ambiente": {
-    "id": {{ambienteId}},
-    "activo": true
-  },
+  "ambienteId": {{ambienteInexistenteId}},
+  "nombreInstructor": "Ana Gomez",
+  "fechaInicio": "2027-07-06T11:00:00",
+  "fechaFin": "2027-07-06T13:00:00",
+  "numeroAprendices": 20
+}
+
+### FALLA - POST /api/reservas - Regla: sin cruces de horario
+POST {{baseUrl}}/api/reservas
+Content-Type: application/json
+
+{
+  "ambienteId": {{ambienteOcupadoId}},
+  "nombreInstructor": "Carlos Ruiz",
+  "fechaInicio": "2027-07-01T09:00:00",
+  "fechaFin": "2027-07-01T11:00:00",
+  "numeroAprendices": 20
+}
+
+### FALLA - POST /api/reservas - Regla: capacidad del ambiente
+POST {{baseUrl}}/api/reservas
+Content-Type: application/json
+
+{
+  "ambienteId": {{ambienteDisponibleId}},
   "nombreInstructor": "Laura Perez",
-  "fechaInicio": "{{fechaInicioLibre}}",
-  "fechaFin": "{{fechaFinLibre}}",
+  "fechaInicio": "2027-07-06T11:00:00",
+  "fechaFin": "2027-07-06T13:00:00",
   "numeroAprendices": 999
 }
 
+### FALLA - POST /api/reservas - Regla: ambiente inactivo
+POST {{baseUrl}}/api/reservas
+Content-Type: application/json
+
+{
+  "ambienteId": {{ambienteInactivoId}},
+  "nombreInstructor": "Pedro Mora",
+  "fechaInicio": "2027-07-06T08:00:00",
+  "fechaFin": "2027-07-06T10:00:00",
+  "numeroAprendices": 10
+}
+
+### FALLA - POST /api/reservas - Regla: no reservar antes de las 6:00
+POST {{baseUrl}}/api/reservas
+Content-Type: application/json
+
+{
+  "ambienteId": {{ambienteDisponibleId}},
+  "nombreInstructor": "Marta Rojas",
+  "fechaInicio": "2027-07-06T05:00:00",
+  "fechaFin": "2027-07-06T07:00:00",
+  "numeroAprendices": 15
+}
+
+### FALLA - POST /api/reservas - Regla: no reservar despues de las 22:00
+POST {{baseUrl}}/api/reservas
+Content-Type: application/json
+
+{
+  "ambienteId": {{ambienteDisponibleId}},
+  "nombreInstructor": "Marta Rojas",
+  "fechaInicio": "2027-07-06T21:00:00",
+  "fechaFin": "2027-07-06T23:00:00",
+  "numeroAprendices": 15
+}
+
+### FALLA - POST /api/reservas - Regla: duracion menor a 1 hora
+POST {{baseUrl}}/api/reservas
+Content-Type: application/json
+
+{
+  "ambienteId": {{ambienteDisponibleId}},
+  "nombreInstructor": "Luis Cano",
+  "fechaInicio": "2027-07-06T14:00:00",
+  "fechaFin": "2027-07-06T14:30:00",
+  "numeroAprendices": 15
+}
+
+### FALLA - POST /api/reservas - Regla: duracion mayor a 4 horas
+POST {{baseUrl}}/api/reservas
+Content-Type: application/json
+
+{
+  "ambienteId": {{ambienteDisponibleId}},
+  "nombreInstructor": "Luis Cano",
+  "fechaInicio": "2027-07-06T14:00:00",
+  "fechaFin": "2027-07-06T18:30:00",
+  "numeroAprendices": 15
+}
+
+### FALLA - POST /api/reservas - Regla: maximo 3 reservas activas por instructor en el dia
+POST {{baseUrl}}/api/reservas
+Content-Type: application/json
+
+{
+  "ambienteId": {{ambienteDisponibleId}},
+  "nombreInstructor": "Instructor Limite",
+  "fechaInicio": "2027-07-04T14:00:00",
+  "fechaFin": "2027-07-04T15:00:00",
+  "numeroAprendices": 15
+}
+
+### FALLA - POST /api/reservas - Regla: no reservar en el pasado
+POST {{baseUrl}}/api/reservas
+Content-Type: application/json
+
+{
+  "ambienteId": {{ambienteDisponibleId}},
+  "nombreInstructor": "Reserva Pasada",
+  "fechaInicio": "2020-01-01T08:00:00",
+  "fechaFin": "2020-01-01T10:00:00",
+  "numeroAprendices": 15
+}
+
+### FALLA - POST /api/reservas - Validacion declarativa: campos obligatorios
+POST {{baseUrl}}/api/reservas
+Content-Type: application/json
+
+{
+  "ambienteId": null,
+  "nombreInstructor": "",
+  "fechaInicio": null,
+  "fechaFin": null,
+  "numeroAprendices": 0
+}
+
 ### OK - GET /api/ambientes/{id}/reservas - Reservas activas de un ambiente por fecha
-GET {{baseUrl}}/api/ambientes/{{ambienteId}}/reservas?fecha={{fechaConsulta}}
+GET {{baseUrl}}/api/ambientes/{{ambienteOcupadoId}}/reservas?fecha={{fechaConsulta}}
 
 ### FALLA - GET /api/ambientes/{id}/reservas - Fecha con formato invalido
-GET {{baseUrl}}/api/ambientes/{{ambienteId}}/reservas?fecha=01-07-2026
+GET {{baseUrl}}/api/ambientes/{{ambienteOcupadoId}}/reservas?fecha=01-07-2027
 
 ### OK - GET /api/ambientes/disponibles - Consultar ambientes disponibles en rango libre
-GET {{baseUrl}}/api/ambientes/disponibles?fechaInicio={{fechaInicioLibre}}&fechaFin={{fechaFinLibre}}
+GET {{baseUrl}}/api/ambientes/disponibles?fechaInicio=2027-07-06T16:00:00&fechaFin=2027-07-06T18:00:00
 
 ### OK - GET /api/ambientes/disponibles - Consultar disponibles con filtros
-GET {{baseUrl}}/api/ambientes/disponibles?fechaInicio={{fechaInicioLibre}}&fechaFin={{fechaFinLibre}}&capacidadMinima=20&tipo=LABORATORIO
+GET {{baseUrl}}/api/ambientes/disponibles?fechaInicio=2027-07-06T16:00:00&fechaFin=2027-07-06T18:00:00&capacidadMinima=20&tipo=SALA
 
 ### FALLA - GET /api/ambientes/disponibles - Fecha fin anterior a fecha inicio
-GET {{baseUrl}}/api/ambientes/disponibles?fechaInicio=2026-07-01T10:00:00&fechaFin=2026-07-01T08:00:00
+GET {{baseUrl}}/api/ambientes/disponibles?fechaInicio=2027-07-06T10:00:00&fechaFin=2027-07-06T08:00:00
 
 ### FALLA - GET /api/ambientes/disponibles - Tipo de ambiente invalido
-GET {{baseUrl}}/api/ambientes/disponibles?fechaInicio={{fechaInicioLibre}}&fechaFin={{fechaFinLibre}}&tipo=CANCHA
+GET {{baseUrl}}/api/ambientes/disponibles?fechaInicio=2027-07-06T16:00:00&fechaFin=2027-07-06T18:00:00&tipo=CANCHA
 
 ### OK - GET /api/reportes/ocupacion - Reporte de ocupacion por rango de fechas
 GET {{baseUrl}}/api/reportes/ocupacion?fechaInicio={{fechaReporteInicio}}&fechaFin={{fechaReporteFin}}
 
 ### FALLA - GET /api/reportes/ocupacion - Fecha fin anterior a fecha inicio
-GET {{baseUrl}}/api/reportes/ocupacion?fechaInicio=2026-07-02&fechaFin=2026-07-01
+GET {{baseUrl}}/api/reportes/ocupacion?fechaInicio=2027-07-02&fechaFin=2027-07-01
 
 ### FALLA - GET /api/reportes/ocupacion - Formato de fecha invalido
-GET {{baseUrl}}/api/reportes/ocupacion?fechaInicio=01-07-2026&fechaFin=2026-07-01
+GET {{baseUrl}}/api/reportes/ocupacion?fechaInicio=01-07-2027&fechaFin=2027-07-01
 
-### OK - PATCH /api/reservas/{id}/cancelar - Cancelar reserva
-PATCH {{baseUrl}}/api/reservas/{{reservaId}}/cancelar
+### OK - GET /api/reportes/ambiente-mas-usado-semana - Ambiente mas usado de la semana
+GET {{baseUrl}}/api/reportes/ambiente-mas-usado-semana?fecha={{fechaSemana}}
+
+### FALLA - GET /api/reportes/ambiente-mas-usado-semana - Formato de fecha invalido
+GET {{baseUrl}}/api/reportes/ambiente-mas-usado-semana?fecha=01-07-2027
+
+### OK - PATCH /api/reservas/{id}/cancelar - Cancelar reserva con mas de 2 horas de anticipacion
+PATCH {{baseUrl}}/api/reservas/{{reservaCancelableId}}/cancelar
+
+### FALLA - PATCH /api/reservas/{id}/cancelar - Regla: menos de 2 horas de anticipacion
+PATCH {{baseUrl}}/api/reservas/{{reservaCancelacionTardiaId}}/cancelar
 
 ### FALLA - PATCH /api/reservas/{id}/cancelar - Reserva inexistente
 PATCH {{baseUrl}}/api/reservas/{{reservaInexistenteId}}/cancelar
