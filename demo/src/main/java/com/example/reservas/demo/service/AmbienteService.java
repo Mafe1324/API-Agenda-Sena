@@ -1,17 +1,21 @@
 package com.example.reservas.demo.service;
 
-import com.example.reservas.demo.model.Ambiente;
-import com.example.reservas.demo.repository.AmbienteRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import com.example.reservas.demo.model.Ambiente;
+import com.example.reservas.demo.repository.AmbienteRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class AmbienteService {
 
-    private final AmbienteRepository ambienteRepository;
+    @Autowired
+    private AmbienteRepository ambienteRepository;
 
     public Ambiente registrar(Ambiente ambiente) {
         return ambienteRepository.save(ambiente);

@@ -1,27 +1,34 @@
 package com.example.reservas.demo.service;
 
-import com.example.reservas.demo.exception.ReglaNegocioException;
-import com.example.reservas.demo.exception.RecursoNoEncontradoException;
-import com.example.reservas.demo.model.Ambiente;
-import com.example.reservas.demo.model.EstadoReserva;
-import com.example.reservas.demo.model.Reserva;
-import com.example.reservas.demo.repository.AmbienteRepository;
-import com.example.reservas.demo.repository.ReservaRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
+import org.springframework.stereotype.Service;
+
+import com.example.reservas.demo.exception.RecursoNoEncontradoException;
+import com.example.reservas.demo.exception.ReglaNegocioException;
+import com.example.reservas.demo.model.Ambiente;
+import com.example.reservas.demo.model.EstadoReserva;
+import com.example.reservas.demo.model.Reserva;
+import com.example.reservas.demo.repository.AmbienteRepository;
+import com.example.reservas.demo.repository.ReservaRepository;
+
+import lombok.RequiredArgsConstructor;
+
 @Service
 @RequiredArgsConstructor
 public class ReservaService {
+    
+    private ReservaRepository reservaRepository;
+    private AmbienteRepository ambienteRepository;
 
-    private final ReservaRepository reservaRepository;
-    private final AmbienteRepository ambienteRepository;
+    public ReservaService(ReservaRepository reservaRepository, AmbienteRepository ambienteRepository ){
+        this.ambienteRepository = ambienteRepository;
+        this.reservaRepository = reservaRepository;
+    }
 
     public Reserva crear(Reserva reserva) {
 
