@@ -33,4 +33,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     List<Reserva> findByNombreInstructorAndEstadoAndFechaInicioBetween(
         String nombreInstructor, EstadoReserva estado, LocalDateTime inicio, LocalDateTime fin
     );
+
+    List<Reserva> findByEstadoAndFechaInicioLessThanAndFechaFinGreaterThan(
+        EstadoReserva estado, LocalDateTime fin, LocalDateTime inicio
+    );
 }

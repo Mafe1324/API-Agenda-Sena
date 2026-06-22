@@ -3,6 +3,7 @@ package com.example.reservas.demo.controller;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.example.reservas.demo.dto.OcupacionAmbienteReporte;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -42,5 +43,13 @@ public class ReservaController {
             @PathVariable Long id,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
         return ResponseEntity.ok(reservaService.listarPorAmbienteYFecha(id, fecha));
+    }
+
+    @GetMapping("/api/reportes/ocupacion")
+    public ResponseEntity<List<OcupacionAmbienteReporte>> reporteOcupacion(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
+
+        return ResponseEntity.ok(reservaService.reporteOcupacion(fechaInicio, fechaFin));
     }
 }

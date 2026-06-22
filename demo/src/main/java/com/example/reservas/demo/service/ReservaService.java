@@ -4,10 +4,14 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.example.reservas.demo.dto.OcupacionAmbienteReporte;
 import com.example.reservas.demo.exception.RecursoNoEncontradoException;
 import com.example.reservas.demo.exception.ReglaNegocioException;
 import com.example.reservas.demo.model.Ambiente;
@@ -16,14 +20,11 @@ import com.example.reservas.demo.model.Reserva;
 import com.example.reservas.demo.repository.AmbienteRepository;
 import com.example.reservas.demo.repository.ReservaRepository;
 
-import lombok.RequiredArgsConstructor;
-
 @Service
-@RequiredArgsConstructor
 public class ReservaService {
     
-    private ReservaRepository reservaRepository;
-    private AmbienteRepository ambienteRepository;
+    private final ReservaRepository reservaRepository;
+    private final  AmbienteRepository ambienteRepository;
 
     public ReservaService(ReservaRepository reservaRepository, AmbienteRepository ambienteRepository ){
         this.ambienteRepository = ambienteRepository;
@@ -110,5 +111,70 @@ public class ReservaService {
         return reservaRepository.findByAmbienteIdAndEstadoAndFechaInicioBetween(
             ambienteId, EstadoReserva.ACTIVA, inicio, fin
         );
+    }
+
+    public List<OcupacionAmbienteReporte> reporteOcupacion(LocalDate fechaInicio, LocalDate fechaFin) {
+        if (fechaFin.isBefore(fechaInicio)) {
+            throw new ReglaNegocioException("La fecha fin debe ser igual o posterior a la fecha inicio");
+        }
+
+        LocalDateTime inicioRango = fechaInicio.atStartOfDay();
+        LocalDateTime finRango = fechaFin.plusDays(1).atStartOfDay();
+
+        List<Reserva> reservas = reservaRepository
+            .findByEstadoAndFechaInicioLessThanAndFechaFinGreaterThan(
+                EstadoReserva.ACTIVA, finRango, inicioRango
+            );
+
+        Map<Long, List<Reserva>> reservasPorAmbiente = reservas.stream()
+            .collect(Collectors.groupingBy(reserva -> reserva.getAmbiente().getId()));
+
+        long dias = Duration.between(inicioRango, finRango).toDays();
+        double horasDisponibles = dias * 16.0;
+
+        List<OcupacionAmbienteReporte> reporte = new ArrayList<>();
+        for (Ambiente ambiente : ambienteRepository.findAll()) {
+            List<Reserva> reservasAmbiente = reservasPorAmbiente
+                .getOrDefault(ambiente.getId(), List.of());
+
+            double horasOcupadas = reservasAmbiente.stream()
+                .mapToDouble(reserva -> calcularHorasDentroDelRango(reserva, inicioRango, finRango))
+                .sum();
+
+            double porcentaje = horasDisponibles == 0
+                ? 0
+                : (horasOcupadas / horasDisponibles) * 100;
+
+            reporte.add(new OcupacionAmbienteReporte(
+                ambiente.getId(),
+                ambiente.getNombre(),
+                ambiente.getTipo(),
+                ambiente.getCapacidad(),
+                (long) reservasAmbiente.size(),
+                redondear(horasOcupadas),
+                redondear(porcentaje)
+            ));
+        }
+
+        return reporte;
+    }
+
+    private double calcularHorasDentroDelRango(
+            Reserva reserva,
+            LocalDateTime inicioRango,
+            LocalDateTime finRango) {
+
+        LocalDateTime inicio = reserva.getFechaInicio().isBefore(inicioRango)
+            ? inicioRango
+            : reserva.getFechaInicio();
+        LocalDateTime fin = reserva.getFechaFin().isAfter(finRango)
+            ? finRango
+            : reserva.getFechaFin();
+
+        return Duration.between(inicio, fin).toMinutes() / 60.0;
+    }
+
+    private double redondear(double valor) {
+        return Math.round(valor * 100.0) / 100.0;
     }
 }
